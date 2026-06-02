@@ -2,6 +2,8 @@
 import { X, ArrowRight, ArrowLeft, Heart, Check, MessageSquare } from 'lucide-react';
 import useArtworkComments from '../hooks/useArtworkComments';
 import ArtistPopupFrame from './ArtistPopupFrame';
+import ArtistIntroStep from './ArtistIntroStep';
+import ArtistDetailStep from './ArtistDetailStep';
 import { artistPopupEnglish } from '../data/artistPopupEnglish';
 import HeartEunhyeContent from '../data/artworkContent/heartEunhye';
 
@@ -109,7 +111,7 @@ export default function HeartEunhyePopup({ onClose, language = 'ko' }) {
       <div className="relative w-[360px] h-[780px] max-h-[92vh] rounded-[32px] overflow-hidden flex flex-col shadow-[0_25px_60px_rgba(0,0,0,0.18)] border border-gray-100 bg-white animate-in zoom-in-95 duration-300 touch-pan-y">
 
         {/* Step 1: 피그마 iPhone 17-23 1:1 완벽 절대 좌표 복원 */}
-        {step === 1 && (
+                <ArtistIntroStep active={step === 1}>
           <div className="relative flex-1 bg-gradient-to-b from-[#ffffff] via-[#fffbfb] to-[#fff0f0] text-gray-800 overflow-hidden select-none">
 
             {/* 1. 피그마 기하학적 도형 배경들 0.9배율 완벽 재현 (화이트-벚꽃핑크 감성에 어울리는 은은한 불투명도 적용) */}
@@ -284,10 +286,10 @@ export default function HeartEunhyePopup({ onClose, language = 'ko' }) {
               <X className="w-4 h-4" />
             </button>
           </div>
-        )}
+        </ArtistIntroStep>
 
         {/* Step 2: 피그마 1:1 디테일 완벽 복원 + 화이트-레드 감성 반전 테마 (iPhone 17 - 24 기반) */}
-        {step === 2 && (
+                <ArtistDetailStep active={step === 2}>
           <div className="relative flex-1 flex flex-col bg-gradient-to-b from-[#ffffff] via-[#fffbfb] to-[#ffebeb] text-gray-800 overflow-y-auto overflow-x-hidden popup-body-scroll select-none touch-pan-y">
 
             {/* 전체 높이를 확보하여 피그마의 웅장한 크기 비율을 시각적 왜곡 없이 보존 */}
@@ -412,7 +414,7 @@ export default function HeartEunhyePopup({ onClose, language = 'ko' }) {
               <X className="w-4 h-4" />
             </button>
           </div>
-        )}
+        </ArtistDetailStep>
 
       </div>
 

@@ -2,6 +2,8 @@
 import { X, ArrowRight, ArrowLeft, Heart, Check, MessageSquare } from 'lucide-react';
 import useArtworkComments from '../hooks/useArtworkComments';
 import ArtistPopupFrame from './ArtistPopupFrame';
+import ArtistIntroStep from './ArtistIntroStep';
+import ArtistDetailStep from './ArtistDetailStep';
 import { artistPopupEnglish } from '../data/artistPopupEnglish';
 import HeartKyminContent from '../data/artworkContent/heartKymin';
 
@@ -122,7 +124,7 @@ export default function HeartKyminPopup({ onClose, language = 'ko' }) {
       <div className="relative w-[360px] h-[780px] max-h-[92vh] rounded-[32px] overflow-hidden flex flex-col shadow-[0_25px_60px_rgba(0,0,0,0.18)] border border-gray-100 bg-white animate-in zoom-in-95 duration-300 touch-pan-y">
         
         {/* Step 1: 피그마 iPhone 17-19 1:1 완벽 절대 좌표 복원 */}
-        {step === 1 && (
+                <ArtistIntroStep active={step === 1}>
           <div
             className="relative flex-1 text-gray-800 overflow-hidden select-none"
             style={{ backgroundImage: `linear-gradient(to bottom, #fff, ${accent(0.03)}, ${accent(0.1)})` }}
@@ -295,10 +297,10 @@ export default function HeartKyminPopup({ onClose, language = 'ko' }) {
               <X className="w-4 h-4" />
             </button>
           </div>
-        )}
+        </ArtistIntroStep>
 
         {/* Step 2: 피그마 iPhone 17-20 기반 디테일 완벽 복원 (김규민 작가 수필 서사 적용) */}
-        {step === 2 && (
+                <ArtistDetailStep active={step === 2}>
           <div
             className="relative flex-1 flex flex-col text-gray-800 overflow-y-auto overflow-x-hidden popup-body-scroll select-none touch-pan-y"
             style={{ backgroundImage: `linear-gradient(to bottom, #fff, ${accent(0.03)}, ${accent(0.12)})` }}
@@ -418,7 +420,7 @@ export default function HeartKyminPopup({ onClose, language = 'ko' }) {
               <X className="w-4 h-4" />
             </button>
           </div>
-        )}
+        </ArtistDetailStep>
 
       </div>
 

@@ -2,6 +2,8 @@
 import { X, ArrowRight, ArrowLeft, Heart, Check, MessageSquare } from 'lucide-react';
 import useArtworkComments from '../hooks/useArtworkComments';
 import ArtistPopupFrame from './ArtistPopupFrame';
+import ArtistIntroStep from './ArtistIntroStep';
+import ArtistDetailStep from './ArtistDetailStep';
 import { artistPopupEnglish } from '../data/artistPopupEnglish';
 import HeartEunchaeContent from '../data/artworkContent/heartEunchae';
 
@@ -106,7 +108,7 @@ export default function HeartEunchaePopup({ onClose, language = 'ko' }) {
       <div className="relative w-[360px] h-[780px] max-h-[92vh] rounded-[32px] overflow-hidden flex flex-col shadow-[0_25px_60px_rgba(0,0,0,0.18)] border border-gray-100 bg-white animate-in zoom-in-95 duration-300 touch-pan-y">
 
         {/* Step 1: 첫 번째 팝업창 (감성 인트로) */}
-        {step === 1 && (
+                <ArtistIntroStep active={step === 1}>
           <div className="relative flex-1 bg-gradient-to-b from-[#ffffff] via-[#fffbfb] to-[#fff0f0] text-gray-800 overflow-hidden select-none">
 
             {/* 기하학적 백그라운드 디자인 */}
@@ -221,10 +223,10 @@ export default function HeartEunchaePopup({ onClose, language = 'ko' }) {
               <X className="w-4 h-4" />
             </button>
           </div>
-        )}
+        </ArtistIntroStep>
 
         {/* Step 2: 두 번째 팝업창 (작품 상세 설명 본문) */}
-        {step === 2 && (
+                <ArtistDetailStep active={step === 2}>
           <div className="relative flex-1 flex flex-col bg-gradient-to-b from-[#ffffff] via-[#fffbfb] to-[#ffebeb] text-gray-800 overflow-y-auto overflow-x-hidden popup-body-scroll select-none touch-pan-y">
             <div className="relative w-full flex flex-col p-6 pb-8 min-h-[960px]">
 
@@ -302,7 +304,7 @@ export default function HeartEunchaePopup({ onClose, language = 'ko' }) {
               <X className="w-4 h-4" />
             </button>
           </div>
-        )}
+        </ArtistDetailStep>
 
       </div>
 

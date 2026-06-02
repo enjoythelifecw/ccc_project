@@ -4,18 +4,11 @@ import MapArea, { DEFAULT_MAP_PINS } from './components/MapArea';
 import SymbolCards from './components/SymbolCards';
 import useFirebaseSymbolSync from './hooks/useFirebaseSymbolSync';
 import usePublicFeedbackFeed from './hooks/usePublicFeedbackFeed';
+import useQrUnlockRouting from './hooks/useQrUnlockRouting';
 import {
-  ADMIN_UNLOCK_CATEGORIES,
-  ADMIN_UNLOCK_LABELS,
-  BASIC_UNLOCK_SYMBOLS,
   INITIAL_SYMBOLS,
-  UNLOCKED_SYMBOLS,
-  hasQuestionPrerequisites,
   normalizeSymbols,
-  resolveQrSymbol,
 } from './utils/symbols';
-import { saveUserSymbols } from './utils/firebaseApi';
-
 import { Camera, Sparkles } from 'lucide-react';
 
 const Popup = lazy(() => import('./components/Popup'));
@@ -84,41 +77,6 @@ const mergeDeviceSymbols = (currentSymbols, incomingSymbols) => {
   }, {});
 };
 
-const publishDeviceSymbols = symbols => {
-  const normalizedSymbols = normalizeSymbols(symbols);
-  localStorage.setItem(SYMBOLS_STORAGE_KEY, JSON.stringify(normalizedSymbols));
-
-  if ('BroadcastChannel' in window) {
-    const channel = new BroadcastChannel(SYMBOLS_BROADCAST_CHANNEL);
-    channel.postMessage({ symbols: normalizedSymbols });
-    channel.close();
-  }
-};
-
-const resolveScannedQrSymbol = rawValue => {
-  const value = String(rawValue || '').trim();
-  if (!value) return '';
-
-  try {
-    const url = new URL(value, window.location.origin);
-    const normalizedPath = url.pathname.replace(/\/+$/, '');
-    const pathTarget = normalizedPath.startsWith('/qr/')
-      ? normalizedPath.slice('/qr/'.length)
-      : normalizedPath.startsWith('/symbol/')
-        ? normalizedPath.slice('/symbol/'.length)
-        : '';
-    const queryTarget =
-      url.searchParams.get('symbol') ||
-      url.searchParams.get('id') ||
-      url.searchParams.get('qr') ||
-      url.searchParams.get('s');
-
-    return resolveQrSymbol(pathTarget || queryTarget || value);
-  } catch {
-    return resolveQrSymbol(value);
-  }
-};
-
 export default function App() {
   const [page, setPage] = useState(() => {
     const path = window.location.pathname;
@@ -140,10 +98,6 @@ export default function App() {
   const [language, setLanguage] = useState(() => localStorage.getItem('language') || 'ko');
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
   const mapSectionRef = useRef(null);
-  const highlightTimerRef = useRef(null);
-  const hasAutoOpenedQuestionGuide = useRef(
-    localStorage.getItem('questionGuideAutoShown') === 'true',
-  );
   const { userId, isLoading } = useFirebaseSymbolSync({
     symbols,
     setSymbols,
@@ -152,66 +106,33 @@ export default function App() {
   });
 
   // 1개 이상 해금 시 해당 카테고리 발견 완료로 판정
-  const isHeartDiscovered = symbols.heart_kymin || symbols.heart_yewon || symbols.heart_eunhye || symbols.heart_jihoon || symbols.heart_eunchae;
-  const isDivideDiscovered = symbols.divide_kyeomjun || symbols.divide_yewon;
-  const isCrossDiscovered = symbols.cross || symbols.cross_jihoon;
-  const isQuestionDiscovered = symbols.question;
-
-  // 특별 심볼 해금 조건: 3가지 심볼이 모두 최소 1개 이상 해금되었을 때
-  const isQuestionUnlocked = isHeartDiscovered && isDivideDiscovered && isCrossDiscovered;
-
-  useEffect(() => {
-    localStorage.setItem('language', language);
-    document.documentElement.lang = language === 'en' ? 'en' : 'ko';
-  }, [language]);
-
-  useEffect(() => {
-    const applyIncomingSymbols = incomingSymbols => {
-      setSymbols(prev => mergeDeviceSymbols(prev, incomingSymbols));
-    };
-
-    const handleStorage = event => {
-      if (event.key !== SYMBOLS_STORAGE_KEY || !event.newValue) return;
-
-      try {
-        applyIncomingSymbols(JSON.parse(event.newValue));
-      } catch (error) {
-        console.error('기기 해금 데이터 동기화 중 오류 발생:', error);
-      }
-    };
-
-    window.addEventListener('storage', handleStorage);
-
-    if (!('BroadcastChannel' in window)) {
-      return () => window.removeEventListener('storage', handleStorage);
-    }
-
-    const channel = new BroadcastChannel(SYMBOLS_BROADCAST_CHANNEL);
-    channel.onmessage = event => {
-      if (event.data?.symbols) {
-        applyIncomingSymbols(event.data.symbols);
-      }
-    };
-
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      channel.close();
-    };
-  }, []);
-
-  const toggleLanguage = () => {
-    setLanguage(prev => (prev === 'en' ? 'ko' : 'en'));
-  };
   const text = appCopy[language] || appCopy.ko;
-
-  const discoveredCount = (isHeartDiscovered ? 1 : 0) + 
-                          (isDivideDiscovered ? 1 : 0) + 
-                          (isCrossDiscovered ? 1 : 0) +
-                          (isQuestionDiscovered ? 1 : 0);
 
   const featuredFeedbacks = usePublicFeedbackFeed({ enabled: page === 'home' });
 
-  // 0. 카카오톡 인앱 브라우저 외부 브라우저 강제 전환
+  const {
+    discoveredCount,
+    focusQuestionPinOnMap,
+    handleMapSymbolClick,
+    handleQrScannerDetected,
+    handleSymbolCardClick,
+    isQuestionUnlocked,
+  } = useQrUnlockRouting({
+    activePopup,
+    isLoading,
+    languageText: text,
+    mapSectionRef,
+    page,
+    setActivePopup,
+    setHighlightedPinId,
+    setIsQrScannerOpen,
+    setPage,
+    setSymbols,
+    setToast,
+    symbols,
+    userId,
+  });
+
   useEffect(() => {
     const userAgent = navigator.userAgent.toLowerCase();
     if (userAgent.includes('kakaotalk')) {
@@ -220,304 +141,6 @@ export default function App() {
     }
   }, []);
 
-  // 1. URL 쿼리 파라미터를 통한 즉시 해금 및 리셋 처리
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const normalizedPath = window.location.pathname.replace(/\/+$/, '');
-    const adminPathTarget = normalizedPath.startsWith('/admin/')
-      ? normalizedPath.slice('/admin/'.length)
-      : '';
-    const unlockPathTarget = normalizedPath.startsWith('/unlock/')
-      ? normalizedPath.slice('/unlock/'.length)
-      : '';
-    const qrPathTarget = normalizedPath.startsWith('/qr/')
-      ? normalizedPath.slice('/qr/'.length)
-      : normalizedPath.startsWith('/symbol/')
-        ? normalizedPath.slice('/symbol/'.length)
-        : '';
-    const adminQueryTarget = params.get('admin');
-    const unlockQueryTarget = params.get('unlock');
-    const qrQueryTarget =
-      params.get('symbol') || params.get('id') || params.get('qr') || params.get('s');
-    const adminUnlockTarget = adminPathTarget || adminQueryTarget;
-    const isResetRequested = params.get('reset') === 'true';
-    const isBasicUnlockRequested =
-      unlockPathTarget === 'basic' ||
-      unlockQueryTarget === 'basic' ||
-      unlockQueryTarget === 'core' ||
-      adminQueryTarget === 'basic';
-    const isAdminUnlockRequested =
-      normalizedPath === '/admin' || adminQueryTarget === 'unlock' || adminQueryTarget === 'all';
-    const isAdminCategoryUnlockRequested =
-      Object.prototype.hasOwnProperty.call(ADMIN_UNLOCK_CATEGORIES, adminUnlockTarget);
-
-    if (isResetRequested) {
-      localStorage.clear();
-      hasAutoOpenedQuestionGuide.current = false;
-      publishDeviceSymbols(INITIAL_SYMBOLS);
-      localStorage.setItem('needReset', 'true'); // Firebase 세션 로드 완료 시 클라우드 리셋을 처리하기 위한 플래그
-      setSymbols(INITIAL_SYMBOLS);
-      setToast('로컬 및 서버 데이터 초기화 중... 🔄');
-      
-      setTimeout(() => {
-        setToast('');
-        window.location.href = window.location.pathname; // 쿼리 파라미터를 깔끔하게 제거하고 새로고침
-      }, 1200);
-      return;
-    }
-
-    if (isBasicUnlockRequested) {
-      setSymbols(prev => {
-        const next = normalizeSymbols(prev);
-        for (const symbolId of BASIC_UNLOCK_SYMBOLS) {
-          next[symbolId] = true;
-        }
-        publishDeviceSymbols(next);
-        return next;
-      });
-      setToast(text.basicUnlocked);
-
-      setTimeout(() => {
-        setToast('');
-      }, 1500);
-
-      window.history.replaceState({}, '', '/');
-      return;
-    }
-
-    if (isAdminUnlockRequested) {
-      publishDeviceSymbols(UNLOCKED_SYMBOLS);
-      setSymbols(UNLOCKED_SYMBOLS);
-      setToast('관리자 모드로 전체 잠금이 열렸습니다.');
-
-      setTimeout(() => {
-        setToast('');
-      }, 1500);
-
-      window.history.replaceState({}, '', '/');
-      return;
-    }
-
-    if (isAdminCategoryUnlockRequested) {
-      setSymbols(prev => {
-        const next = normalizeSymbols(prev);
-        for (const symbolId of ADMIN_UNLOCK_CATEGORIES[adminUnlockTarget]) {
-          next[symbolId] = true;
-        }
-        publishDeviceSymbols(next);
-        return next;
-      });
-      setToast(`관리자 모드로 ${ADMIN_UNLOCK_LABELS[adminUnlockTarget]} 잠금이 열렸습니다.`);
-
-      setTimeout(() => {
-        setToast('');
-      }, 1500);
-
-      window.history.replaceState({}, '', '/');
-      return;
-    }
-
-    const symbol = resolveQrSymbol(qrPathTarget || qrQueryTarget);
-
-    if (symbol) {
-      if (symbol === 'question') {
-        if (!hasQuestionPrerequisites(symbols)) {
-          setToast(text.needThreeSymbols);
-          setTimeout(() => {
-            setToast('');
-          }, 2000);
-          window.history.replaceState({}, '', '/');
-          return;
-        }
-
-        setSymbols(prev => {
-          const next = { ...prev, question: true };
-          publishDeviceSymbols(next);
-          if (userId) {
-            saveUserSymbols(userId, next).catch(err => {
-              console.error('question QR 완료 데이터 백업 중 에러 발생:', err);
-            });
-          }
-          return next;
-        });
-
-        setPage('home');
-        setActivePopup({
-          type: 'qr',
-          id: 'question',
-        });
-        window.history.replaceState({}, '', '/');
-        return;
-      }
-
-      if (Object.prototype.hasOwnProperty.call(INITIAL_SYMBOLS, symbol)) {
-        setSymbols(prev => {
-          if (prev[symbol]) return prev;
-          const next = { ...prev, [symbol]: true };
-          publishDeviceSymbols(next);
-          if (userId) {
-            saveUserSymbols(userId, next).catch(err => {
-              console.error('QR 해금 데이터 즉시 백업 중 에러 발생:', err);
-            });
-          }
-          return next;
-        });
-
-        setActivePopup({
-          type: 'qr',
-          id: symbol,
-        });
-
-        window.history.replaceState({}, '', '/');
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (
-      !isQuestionUnlocked ||
-      isQuestionDiscovered ||
-      isLoading ||
-      page !== 'home' ||
-      activePopup ||
-      hasAutoOpenedQuestionGuide.current
-    ) {
-      return;
-    }
-
-    hasAutoOpenedQuestionGuide.current = true;
-    localStorage.setItem('questionGuideAutoShown', 'true');
-
-    const timerId = window.setTimeout(() => {
-      setActivePopup({
-        type: 'question_guide',
-        id: 'question',
-      });
-    }, 650);
-
-    return () => window.clearTimeout(timerId);
-  }, [isQuestionUnlocked, isQuestionDiscovered, isLoading, page, activePopup]);
-
-  const handleQrScannerDetected = rawValue => {
-    const symbol = resolveScannedQrSymbol(rawValue);
-
-    if (!symbol || !Object.prototype.hasOwnProperty.call(INITIAL_SYMBOLS, symbol)) {
-      setToast(text.invalidQr);
-      window.setTimeout(() => setToast(''), 1600);
-      return;
-    }
-
-    if (symbol === 'question' && !hasQuestionPrerequisites(symbols)) {
-      setToast(text.needThreeSymbols);
-      window.setTimeout(() => setToast(''), 2000);
-      setIsQrScannerOpen(false);
-      return;
-    }
-
-    setSymbols(prev => {
-      const next = { ...prev, [symbol]: true };
-      publishDeviceSymbols(next);
-      if (userId) {
-        saveUserSymbols(userId, next).catch(err => {
-          console.error('QR 스캔 해금 데이터 백업 중 에러 발생:', err);
-        });
-      }
-      return next;
-    });
-
-    setIsQrScannerOpen(false);
-    setPage('home');
-    setActivePopup({
-      type: 'qr',
-      id: symbol,
-    });
-    window.history.replaceState({}, '', '/');
-  };
-
-  const handleMapSymbolClick = id => {
-    if (id === 'question') {
-      if (!isQuestionUnlocked) {
-        setToast(text.boothLocked);
-        setTimeout(() => {
-          setToast('');
-        }, 2000);
-        return;
-      }
-      setActivePopup({
-        type: symbols.question ? 'qr' : 'question_guide',
-        id: 'question',
-      });
-      return;
-    }
-
-    const isDiscovered = symbols[id];
-    setActivePopup({
-      type: isDiscovered ? 'qr' : 'map',
-      id,
-    });
-  };
-
-  const handleSymbolCardClick = id => {
-    if (id === 'question') {
-      if (!isQuestionUnlocked) {
-        setToast(text.boothLocked);
-        setTimeout(() => {
-          setToast('');
-        }, 2000);
-        return;
-      }
-      setActivePopup({
-        type: symbols.question ? 'qr' : 'question_guide',
-        id: 'question',
-      });
-      return;
-    }
-
-    const isCategoryDiscovered = 
-      id === 'heart' ? isHeartDiscovered :
-      id === 'divide' ? isDivideDiscovered :
-      id === 'cross' ? isCrossDiscovered :
-      symbols[id];
-
-    if (!isCategoryDiscovered) {
-      setToast(`${text.undiscovered} 🔒`);
-
-      setTimeout(() => {
-        setToast('');
-      }, 1500);
-
-      return;
-    }
-
-    if (id === 'heart' || id === 'divide' || id === 'cross') {
-      setActivePopup({
-        type: 'multi',
-        id, // 'heart', 'divide' 또는 'cross'
-      });
-    } else {
-      setActivePopup({
-        type: 'qr',
-        id, // 'question'
-      });
-    }
-  };
-
-  const focusQuestionPinOnMap = () => {
-    const questionPin = mapSectionRef.current?.querySelector('[data-map-pin-id="question"]');
-
-    (questionPin || mapSectionRef.current)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-      inline: 'center',
-    });
-
-    setHighlightedPinId('question');
-    window.clearTimeout(highlightTimerRef.current);
-    highlightTimerRef.current = window.setTimeout(() => {
-      setHighlightedPinId(null);
-    }, 6200);
-  };
-
   const closePopup = () => {
     const shouldFocusQuestionPin = activePopup?.type === 'question_guide' && activePopup?.id === 'question';
     setActivePopup(null);
@@ -525,6 +148,14 @@ export default function App() {
     if (shouldFocusQuestionPin) {
       window.setTimeout(focusQuestionPinOnMap, 180);
     }
+  };
+
+  const toggleLanguage = () => {
+    setLanguage(prev => {
+      const nextLanguage = prev === 'ko' ? 'en' : 'ko';
+      localStorage.setItem('language', nextLanguage);
+      return nextLanguage;
+    });
   };
 
   const openHomePage = () => {
@@ -549,9 +180,6 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  useEffect(() => (
-    () => window.clearTimeout(highlightTimerRef.current)
-  ), []);
 
   if (page === 'participate') {
     return (

@@ -2,6 +2,8 @@
 import { X, ArrowRight, ArrowLeft, Divide, Check, MessageSquare } from 'lucide-react';
 import useArtworkComments from '../hooks/useArtworkComments';
 import ArtistPopupFrame from './ArtistPopupFrame';
+import ArtistIntroStep from './ArtistIntroStep';
+import ArtistDetailStep from './ArtistDetailStep';
 import { artistPopupEnglish } from '../data/artistPopupEnglish';
 import DivideYewonContent from '../data/artworkContent/divideYewon';
 
@@ -108,7 +110,7 @@ export default function DivideYewonPopup({ onClose, language = 'ko' }) {
       <div className="relative w-[360px] h-[780px] max-h-[92vh] rounded-[32px] overflow-hidden flex flex-col shadow-[0_25px_60px_rgba(0,0,0,0.18)] border border-gray-100 bg-white animate-in zoom-in-95 duration-300 touch-pan-y">
         
         {/* Step 1: 피그마 iPhone 17-13 1:1 완벽 절대 좌표 복원 */}
-        {step === 1 && (
+                <ArtistIntroStep active={step === 1}>
           <div className="relative flex-1 bg-gradient-to-b from-[#ffffff] via-[#fffaf5] to-[#fff3e6] text-gray-800 overflow-hidden select-none">
             
             {/* 1. 피그마 기하학적 도형 배경들 0.9배율 완벽 재현 (주황/코랄 오리지널 테마) */}
@@ -283,10 +285,10 @@ export default function DivideYewonPopup({ onClose, language = 'ko' }) {
               <X className="w-4 h-4" />
             </button>
           </div>
-        )}
+        </ArtistIntroStep>
 
         {/* Step 2: 피그마 iPhone 17-15 기반 디테일 완벽 복원 (나누기 손예원 작가 수필 서사 적용) */}
-        {step === 2 && (
+                <ArtistDetailStep active={step === 2}>
           <div className="relative flex-1 flex flex-col bg-gradient-to-b from-[#ffffff] via-[#fffbf7] to-[#fff4eb] text-gray-800 overflow-y-auto overflow-x-hidden popup-body-scroll select-none touch-pan-y">
             
             {/* 전체 높이를 확보하여 피그마의 비율을 보존 */}
@@ -403,7 +405,7 @@ export default function DivideYewonPopup({ onClose, language = 'ko' }) {
               <X className="w-4 h-4" />
             </button>
           </div>
-        )}
+        </ArtistDetailStep>
 
       </div>
 
